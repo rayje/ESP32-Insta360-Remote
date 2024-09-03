@@ -1,12 +1,12 @@
-#include "Button.h"
 #include "Insta360.h"
-#include "Observer.h"
-
+#include "Button.h"
+#include "Event.h"
 
 Camera cam;
-Button recordButton(14, 23);
 
 Observer observer;
+Dispatcher dispatcher;
+Button recordButton(14, 23, dispatcher);
 
 void IRAM_ATTR recordISR() {
   recordButton.click();
@@ -20,6 +20,10 @@ void setup() {
   cam.setup();
   recordButton.setup();
   attachInterrupt(recordButton.getButtonPin(), recordISR, FALLING);
+
+  dispatcher.subscribe(ButtonClickEvent::descriptor, 
+                       std::bind( &Observer::handle, observer, std::placeholders::_1));
+
 }
 
 void loop() {
