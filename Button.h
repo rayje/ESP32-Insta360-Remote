@@ -1,15 +1,30 @@
 #include "Event.h"
+// #include "Dispatcher.h"
+
+
+enum class ButtonClickEvent {
+  RECORD,
+};
+
+class RecordClickEvent : public Event<ButtonClickEvent>
+{
+public:
+  RecordClickEvent() : Event<ButtonClickEvent>(ButtonClickEvent::RECORD, "RecordEvent"){};
+  virtual ~RecordClickEvent() = default;
+};
+
 
 class Button {
   const byte btnPin;
   const byte ledPin;
-  const Dispatcher dispatcher;
+  // Dispatcher<ButtonClickEvent> &dispatcher;
+  // RecordClickEvent recordEvent;
   unsigned long last_button_time = 0;
   bool pressed = false;
 
   public:
-    Button(byte buttonPin, byte lightPin, Dispatcher &attachToDispatcher) : 
-      btnPin(buttonPin), ledPin(lightPin), dispatcher(attachToDispatcher) {};
+    Button(byte buttonPin, byte lightPin) : //, Dispatcher<ButtonClickEvent> &attachToDispatcher) : 
+      btnPin(buttonPin), ledPin(lightPin) {};  //, dispatcher(attachToDispatcher) {};
 
     void setup() {
       pinMode(btnPin, INPUT_PULLUP);
@@ -17,19 +32,23 @@ class Button {
     }
 
     void loop() {
-      if (pressed) {
-        digitalWrite(ledPin, HIGH);
-      } else {
-        digitalWrite(ledPin, LOW);
-      }
+      // if (pressed) {
+      //   // Serial.println("PRESSED");
+      //   digitalWrite(ledPin, HIGH);
+      //   // Serial.println("PRESSED-HIGH");
+      // } else {
+      //   digitalWrite(ledPin, LOW);
+      // }
     }
 
     void click() {
-      unsigned long button_time = 0;
+      unsigned long button_time = millis();
+      Serial.println("Button::click-outside");
       if (button_time - last_button_time > 250) {
-        pressed = true;
+        pressed = !pressed;
         last_button_time = button_time;
-        dispatcher.post(ButtonClickEvent());
+        // dispatcher.post(recordEvent);
+        Serial.println("Button::click-inside");
       }
     }
 
@@ -41,10 +60,12 @@ class Button {
 
 class Observer {
   public:
-    void handle(const Event& e) {
-      if (e.type() == ButtonClickEvent::descriptor) {
-        const ButtonClickEvent& clickEvent = static_cast<const ButtonClickEvent&>( e );
-        Serial.println(clickEvent.type());
+    void handle(const Event<ButtonClickEvent>& e) {
+      if (e.type() == ButtonClickEvent::RECORD) {
+        Serial.println(e.getName().c_str());
+      } else {
+        Serial.println("Unknown event:");
+        Serial.println(e.getName().c_str());
       }
     }
 

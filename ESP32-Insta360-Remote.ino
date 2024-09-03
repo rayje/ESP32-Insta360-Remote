@@ -1,12 +1,13 @@
-#include "Insta360.h"
+// #include "Insta360.h"
 #include "Button.h"
 #include "Event.h"
+// #include "Dispatcher.h"
 
-Camera cam;
+// Camera cam;
 
-Observer observer;
-Dispatcher dispatcher;
-Button recordButton(14, 23, dispatcher);
+// Observer observer;
+// Dispatcher<ButtonClickEvent> dispatcher;
+Button recordButton(14, 23); //, dispatcher);
 
 void IRAM_ATTR recordISR() {
   recordButton.click();
@@ -17,12 +18,12 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Starting BLE work!");
 
-  cam.setup();
+  // cam.setup();
   recordButton.setup();
   attachInterrupt(recordButton.getButtonPin(), recordISR, FALLING);
 
-  dispatcher.subscribe(ButtonClickEvent::descriptor, 
-                       std::bind( &Observer::handle, observer, std::placeholders::_1));
+  // dispatcher.subscribe(ButtonClickEvent::RECORD, 
+  //                      std::bind( &Observer::handle, observer, std::placeholders::_1));
 
 }
 
