@@ -1,72 +1,50 @@
-#include "Event.h"
-// #include "Dispatcher.h"
-
-
-enum class ButtonClickEvent {
-  RECORD,
-};
-
-class RecordClickEvent : public Event<ButtonClickEvent>
-{
-public:
-  RecordClickEvent() : Event<ButtonClickEvent>(ButtonClickEvent::RECORD, "RecordEvent"){};
-  virtual ~RecordClickEvent() = default;
-};
+#include <EventManager.h>
+#include "Events.h"
 
 
 class Button {
   const byte btnPin;
-  const byte ledPin;
-  // Dispatcher<ButtonClickEvent> &dispatcher;
-  // RecordClickEvent recordEvent;
+  EventManager &eventManager;
+
   unsigned long last_button_time = 0;
   bool pressed = false;
 
   public:
-    Button(byte buttonPin, byte lightPin) : //, Dispatcher<ButtonClickEvent> &attachToDispatcher) : 
-      btnPin(buttonPin), ledPin(lightPin) {};  //, dispatcher(attachToDispatcher) {};
+    Button(byte buttonPin, EventManager &attachToEM) : 
+      btnPin(buttonPin), eventManager(attachToEM) {};
 
     void setup() {
       pinMode(btnPin, INPUT_PULLUP);
-      pinMode(ledPin, OUTPUT);
-    }
-
-    void loop() {
-      // if (pressed) {
-      //   // Serial.println("PRESSED");
-      //   digitalWrite(ledPin, HIGH);
-      //   // Serial.println("PRESSED-HIGH");
-      // } else {
-      //   digitalWrite(ledPin, LOW);
-      // }
     }
 
     void click() {
       unsigned long button_time = millis();
-      Serial.println("Button::click-outside");
       if (button_time - last_button_time > 250) {
         pressed = !pressed;
         last_button_time = button_time;
-        // dispatcher.post(recordEvent);
-        Serial.println("Button::click-inside");
+        // Serial.println("Button::click-inside");
+
+        if (pressed) {
+          eventManager.queueEvent(EventType::RECORD_START, 1);
+        } else {
+          eventManager.queueEvent(EventType::RECORD_STOP, 0);
+        }
       }
     }
 
     byte getButtonPin() const {
       return btnPin;
     }
-};
 
-
-class Observer {
-  public:
-    void handle(const Event<ButtonClickEvent>& e) {
-      if (e.type() == ButtonClickEvent::RECORD) {
-        Serial.println(e.getName().c_str());
-      } else {
-        Serial.println("Unknown event:");
-        Serial.println(e.getName().c_str());
+    void handle(int eventCode, int eventParam) {
+      switch (eventCode) {
+        case EventType::RECORD_BUTTON_CLICKED:
+          click();
+          break;
+        case EventType::INVALID_RECORDING_STATE:
+          // reset pressed state
+          pressed = false;
+          break;
       }
     }
-
 };

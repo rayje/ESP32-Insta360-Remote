@@ -1,33 +1,55 @@
-// #include "Insta360.h"
+#include <EventManager.h>
+
+#include "Insta360.h"
 #include "Button.h"
-#include "Event.h"
-// #include "Dispatcher.h"
+#include "Events.h"
+#include "Led.h"
 
-// Camera cam;
 
-// Observer observer;
-// Dispatcher<ButtonClickEvent> dispatcher;
-Button recordButton(14, 23); //, dispatcher);
+EventManager eventManager;
+const byte connectedLedPin = 22;
+const byte advertisingLedPin = 18;
+const byte recordLedPin = 23;
+Led recordLed(recordLedPin);
+Camera cam(connectedLedPin, advertisingLedPin, recordLed, eventManager);
+
+// EventManager btnEventManager;
+Button recordButton(14, eventManager);
+
 
 void IRAM_ATTR recordISR() {
-  recordButton.click();
+  eventManager.queueEvent(EventType::RECORD_BUTTON_CLICKED, 0);
 }
-
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting BLE work!");
 
-  // cam.setup();
   recordButton.setup();
   attachInterrupt(recordButton.getButtonPin(), recordISR, FALLING);
 
-  // dispatcher.subscribe(ButtonClickEvent::RECORD, 
-  //                      std::bind( &Observer::handle, observer, std::placeholders::_1));
+  eventManager.addListener(EventType::RECORD_BUTTON_CLICKED,
+                           [](int eventCode, int eventParam) {
+                             recordButton.handle(eventCode, eventParam);
+                           });
 
+  eventManager.addListener(EventType::RECORD_START,
+                           [](int eventCode, int eventParam) {
+                             cam.recordButtonHandler(eventCode, eventParam);
+                           });
+  eventManager.addListener(EventType::RECORD_STOP,
+                           [](int eventCode, int eventParam) {
+                             cam.recordButtonHandler(eventCode, eventParam);
+                           });
+  eventManager.addListener(EventType::INVALID_RECORDING_STATE,
+                           [](int eventCode, int eventParam) {
+                             recordButton.handle(eventCode, eventParam);
+                           });
+  cam.setup();
 }
 
 void loop() {
-  // cam.loop();
-  recordButton.loop();
+  eventManager.processEvent();
+  cam.loop();
+  recordLed.loop();
 }

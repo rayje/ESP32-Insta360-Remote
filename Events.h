@@ -1,0 +1,11 @@
+#ifndef EVENTS_H
+#define EVENTS_H
+
+enum EventType {
+  RECORD_BUTTON_CLICKED,
+  RECORD_START,
+  RECORD_STOP,
+  INVALID_RECORDING_STATE
+};
+
+#endif

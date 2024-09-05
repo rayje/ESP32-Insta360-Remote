@@ -3,6 +3,11 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLEAdvertising.h>
+#include <EventManager.h>
+
+#include "Events.h"
+#include "Led.h"
+
 
 #define SERVICE_UUID "ce80"
 #define CHARACTERISTIC_UUID1 "ce81"
@@ -39,24 +44,47 @@ unsigned long myTime;
 uint8_t manuf_data[30];
 
 class MyServerCallbacks : public BLEServerCallbacks {
+    const byte ledPin;
+
+  public:
+    MyServerCallbacks(byte attachToLedPin) : ledPin(attachToLedPin) {};
+
     void onConnect(BLEServer *pServer) {
         deviceConnected = true;
         myTime = millis();
         BLEDevice::startAdvertising();
+
+        digitalWrite(ledPin, HIGH);
     };
 
-    void onDisconnect(BLEServer *pServer) { deviceConnected = false; }
+    void onDisconnect(BLEServer *pServer) { 
+      deviceConnected = false; 
+      digitalWrite(ledPin, LOW);
+    }
 };
 
 
 class Camera {
+  const byte connectedLedPin;
+  const byte advertisingLedPin;
+  Led &recordLed;
+  EventManager &eventManager;
 
   public:
+    Camera(byte attachToConnectedLedPin, byte attachToAdvertisingLedPin, Led &attachToRecordLed, EventManager &attachToEM) : 
+      connectedLedPin(attachToConnectedLedPin), 
+      advertisingLedPin(attachToAdvertisingLedPin), 
+      recordLed(attachToRecordLed),
+      eventManager(attachToEM) {};
 
     void setup() {
+      pinMode(connectedLedPin, OUTPUT);
+      pinMode(advertisingLedPin, OUTPUT);
+      recordLed.setup();
+
       BLEDevice::init("Insta360 GPS Remote");
       pServer = BLEDevice::createServer();
-      pServer->setCallbacks(new MyServerCallbacks());
+      pServer->setCallbacks(new MyServerCallbacks(connectedLedPin));
 
       BLEService *pService = pServer->createService(SERVICE_UUID);
       BLECharacteristic *pCharacteristic1 = pService->createCharacteristic(
@@ -134,6 +162,7 @@ class Camera {
       BLEDevice::startAdvertising();
       Serial.println(
           "Characteristic defined! Now you can read it in your phone!");
+      digitalWrite(advertisingLedPin, HIGH);
 
       /* set the manufacturing data for wakeon packet */
       manuf_data[0] = 0x4c;
@@ -171,40 +200,73 @@ class Camera {
           pServer->startAdvertising(); // restart advertising
           Serial.println("start advertising");
           oldDeviceConnected = deviceConnected;
+
+          digitalWrite(advertisingLedPin, HIGH);
       }
       // connecting
       if (deviceConnected && !oldDeviceConnected) {
           // do stuff here on connecting
           Serial.println("connecting");
           oldDeviceConnected = deviceConnected;
+
+          digitalWrite(advertisingLedPin, LOW);
       }
 
-      /* this loop just goes through all the features */
-      if (((millis() - myTime) > CAPTURE_DELAY)) {
-          Serial.println("capture");
-          myTime = millis();
-          shutterButton(pCharacteristicRx);
-          delay(30000);
+      // /* this loop just goes through all the features */
+      // if (((millis() - myTime) > CAPTURE_DELAY)) {
+      //     Serial.println("capture");
+      //     myTime = millis();
+      //     shutterButton(pCharacteristicRx);
+      //     delay(30000);
 
-          Serial.println("stop capture");
-          shutterButton(pCharacteristicRx);
-          delay(1000);
+      //     Serial.println("stop capture");
+      //     shutterButton(pCharacteristicRx);
+      //     delay(1000);
 
-          Serial.println("screen off");
-          screenToggle(pCharacteristicRx);
-          delay(5000);
+      //     Serial.println("screen off");
+      //     screenToggle(pCharacteristicRx);
+      //     delay(5000);
 
-          Serial.println("screen on");
-          screenToggle(pCharacteristicRx);
-          delay(5000);
+      //     Serial.println("screen on");
+      //     screenToggle(pCharacteristicRx);
+      //     delay(5000);
           
-          // Serial.println("power off");
-          // powerOff(pCharacteristicRx);
-          // delay(30000);
+      //     // Serial.println("power off");
+      //     // powerOff(pCharacteristicRx);
+      //     // delay(30000);
 
-          // Serial.println("power on");
-          // BLEDevice::stopAdvertising();
-          // powerOnPrevConnectedCameras();
+      //     // Serial.println("power on");
+      //     // BLEDevice::stopAdvertising();
+      //     // powerOnPrevConnectedCameras();
+      // }
+    }
+
+    void recordButtonHandler(int eventType, int eventParam) {
+      Serial.println("Handling recordButtonHandler");
+      Serial.println(eventType);
+      switch (eventType) {
+        case EventType::RECORD_START:
+          if (deviceConnected) {
+            shutterButton(pCharacteristicRx);
+            Serial.println("Recording started");
+            recordLed.on();
+          } else {
+            Serial.println("Received record start event: Device not connected");
+            recordLed.blink(3);
+            eventManager.queueEvent(EventType::INVALID_RECORDING_STATE, 0);
+          }
+          break;
+        case EventType::RECORD_STOP:
+          if (deviceConnected) {
+            shutterButton(pCharacteristicRx);
+            Serial.println("Recording stopped");
+            recordLed.off();
+          } else {
+            Serial.println("Received record stop event: Device not connected");
+            recordLed.blink(5);
+            eventManager.queueEvent(EventType::INVALID_RECORDING_STATE, 0);
+          }
+          break;
       }
     }
 
