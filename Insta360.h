@@ -244,28 +244,33 @@ class Camera {
     void recordButtonHandler(int eventType, int eventParam) {
       Serial.println("Handling recordButtonHandler");
       Serial.println(eventType);
+      
+      if (!deviceConnected) {
+        Serial.println("Received record start event: Device not connected");
+        recordLed.blink(5);
+        eventManager.queueEvent(EventType::DEVICE_NOT_CONNECTED, 0);
+        return;
+      }
+
       switch (eventType) {
         case EventType::RECORD_START:
-          if (deviceConnected) {
-            shutterButton(pCharacteristicRx);
-            Serial.println("Recording started");
-            recordLed.on();
-          } else {
-            Serial.println("Received record start event: Device not connected");
-            recordLed.blink(3);
-            eventManager.queueEvent(EventType::INVALID_RECORDING_STATE, 0);
-          }
+          shutterButton(pCharacteristicRx);
+          Serial.println("Recording started");
+          recordLed.on();
           break;
         case EventType::RECORD_STOP:
-          if (deviceConnected) {
-            shutterButton(pCharacteristicRx);
-            Serial.println("Recording stopped");
-            recordLed.off();
-          } else {
-            Serial.println("Received record stop event: Device not connected");
-            recordLed.blink(5);
-            eventManager.queueEvent(EventType::INVALID_RECORDING_STATE, 0);
-          }
+          shutterButton(pCharacteristicRx);
+          Serial.println("Recording stopped");
+          recordLed.off();
+          break;
+        case EventType::POWER_OFF:
+          Serial.println("power off");
+          powerOff(pCharacteristicRx);
+          recordLed.off();
+          break;
+        default:
+          Serial.print("Unknown eventType: ");
+          Serial.println(eventType);
           break;
       }
     }
